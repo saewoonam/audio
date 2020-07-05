@@ -51,11 +51,11 @@ def update():
     data = np.frombuffer(in_data, dtype=np.int16);
     x = np.arange(len(data))/RATE
     y = data
-    curve1.setData(x, y)
-
-    D = np.abs(np.fft.rfft(data-data.mean()))
+    curve1.setData(x, y, pen='r')
+    data = (data-data.mean()) * np.bartlett(len(data))
+    D = np.abs(np.fft.rfft(data))
     f = np.arange(len(D))*RATE/CHUNK
-    curve.setData(f, D)
+    curve.setData(f, D, pen='y')
 
     now = time()
     dt = now - lastTime
@@ -65,7 +65,8 @@ def update():
     else:
         s = np.clip(dt*3., 0, 1)
         fps = fps * (1-s) + (1.0/dt) * s
-    p1.setTitle('%0.2f fps' % fps)
+    # p1.setTitle('%0.2f fps' % fps)
+    p1.setTitle('%0.2f' % (dt*1000))
     app.processEvents()  ## force complete redraw for every plot
     # win.repaint()
 
@@ -82,9 +83,6 @@ stream = audio.open(format=FORMAT,
                     rate=RATE,
                     input=True)
 stream.start_stream()
-
-    
-
 
 ## Start Qt event loop unless running in interactive mode.
 if __name__ == '__main__':
