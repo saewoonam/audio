@@ -5,7 +5,7 @@ import numpy as np
 import pyqtgraph as pg
 from pyqtgraph.ptime import time
 import pyaudio
-
+import sys
 FORMAT = pyaudio.paInt16 # We use 16 bit format per sample
 CHANNELS = 1
 RATE = 44100
@@ -22,7 +22,7 @@ win.setWindowTitle('pyaudio pyqtgraph')
 # p = pg.plot()
 p1 = win.addPlot()
 p1.setLabel('bottom', 'time', units='sec')
-p1.setRange(QtCore.QRectF(0, -500, CHUNK/RATE, 1000)) 
+p1.setRange(QtCore.QRectF(0, -1000, CHUNK/RATE, 2000)) 
 curve1 = p1.plot()
 def makeBox(p):
     p.showAxis('right', show=True)
@@ -45,9 +45,19 @@ lastTime = time()
 fps = None
 
 def update(): 
-    global curve, data, ptr, p, lastTime, fps
+    global curve, data, ptr, p, lastTime, fps, stream
 
-    in_data = stream.read(CHUNK)
+    done = False
+    while not done:
+        try:
+            in_data = stream.read(CHUNK, True)
+            done = True
+        except Exception as e:
+            print(e)
+            if (e.errno==-9988):
+                stream.close()
+                init_stream()
+
     data = np.frombuffer(in_data, dtype=np.int16);
     x = np.arange(len(data))/RATE
     y = data
@@ -77,13 +87,19 @@ if True:
 
 audio = pyaudio.PyAudio()
 
-# Claim the microphone
-stream = audio.open(format=FORMAT,
-                    channels=CHANNELS,
-                    rate=RATE,
-                    input=True)
-stream.start_stream()
 
+# Claim the microphone
+def init_stream():
+    global stream
+
+    stream = audio.open(format=FORMAT,
+                        channels=CHANNELS,
+                        rate=RATE,
+                        input_device_index = 1,
+                        input=True)
+    print(dir(stream))
+    stream.start_stream()
+init_stream()
 ## Start Qt event loop unless running in interactive mode.
 if __name__ == '__main__':
     import sys
