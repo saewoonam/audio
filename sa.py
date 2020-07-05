@@ -46,14 +46,16 @@ fps = None
 
 def update(): 
     global curve, data, ptr, p, lastTime, fps, stream
-
+    #  Fix program not exitnig on closed window on mac
+    if not win.isVisible():
+        sys.exit(0)
     done = False
     while not done:
         try:
             in_data = stream.read(CHUNK, True)
             done = True
         except Exception as e:
-            print(e)
+            # print(e)
             if (e.errno==-9988):
                 stream.close()
                 init_stream()
@@ -97,11 +99,18 @@ def init_stream():
                         rate=RATE,
                         input_device_index = 1,
                         input=True)
-    print(dir(stream))
+    # print(dir(stream))
     stream.start_stream()
 init_stream()
+
+def show_devices():
+    # audio = pyaudio.PyAudio()
+    for i in range(audio.get_device_count()):
+        print (i, audio.get_device_info_by_index(i))
+
 ## Start Qt event loop unless running in interactive mode.
 if __name__ == '__main__':
-    import sys
-    if (sys.flags.interactive != 1) or not hasattr(QtCore, 'PYQT_VERSION'):
-        QtGui.QApplication.instance().exec_()
+    # import sys
+    # if (sys.flags.interactive != 1) or not hasattr(QtCore, 'PYQT_VERSION'):
+    #     QtGui.QApplication.instance().exec_()
+    app.exec_()

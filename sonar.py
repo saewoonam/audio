@@ -1,6 +1,9 @@
 # https://inst.eecs.berkeley.edu/~ee123/sp17/lab/lab1/lab1-TimeDomain-Sonar.html
 #
 #
+import queue
+import pyaudio
+
 def play_audio( Q, p, fs , dev=None):
     # play_audio plays audio with sampling rate = fs
     # Q - A queue object from which to play
