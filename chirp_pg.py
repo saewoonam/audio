@@ -10,6 +10,7 @@ import threading
 
 app = QtGui.QApplication([])
 PAUSED = False
+CHIRPING = True
 #  Setup pyaudio parameters
 FORMAT=pyaudio.paFloat32
 dtype = np.float32
@@ -59,8 +60,10 @@ def play():
     global OUT_STREAM, OUT_DATA, win
     # for count in range(10):
     while(win.isVisible()):
-        time.sleep(0.1)
-        OUT_STREAM.write(OUT_DATA.astype(np.float32).tobytes())
+        while (CHIRPING and win.isVisible()):
+            time.sleep(0.1)
+            OUT_STREAM.write(OUT_DATA.astype(np.float32).tobytes())
+        time.sleep(1)  # sleep briefly while not chirping
 
 # build chirp signals
 def build_chirp(f1, f2, real_duration=25e-3):
@@ -81,6 +84,7 @@ w = QtGui.QWidget()
 
 ## Create some widgets to be placed inside
 btn = QtGui.QPushButton('pause')
+btn_chirp = QtGui.QPushButton('chirp off')
 # text = QtGui.QLineEdit('enter text')
 # listw = QtGui.QListWidget()
 win = pg.GraphicsLayoutWidget(show=True, title=f"Pyaudio+pyqtgraph, fs={Fs}")
@@ -91,6 +95,7 @@ w.setLayout(layout)
 
 ## Add widgets to the layout in their proper positions
 layout.addWidget(btn, 0, 0)   # button goes in upper-left
+layout.addWidget(btn_chirp, 1, 0)   # button goes in upper-left
 # layout.addWidget(text, 1, 0)   # text edit goes in middle-left
 # layout.addWidget(listw, 2, 0)  # list widget goes in bottom-left
 layout.addWidget(win, 0, 1, 5, 5)  # plot goes on right side, spanning 3 rows
@@ -106,7 +111,17 @@ def pause(evt):
     else:
         btn.setText('Pause')
 
+
+def chirp_clicked(evt):
+    global CHIRPING
+    CHIRPING = not CHIRPING
+    if CHIRPING:
+        btn_chirp.setText('chirp off')
+    else:
+        btn_chirp.setText('chirp on')
+
 btn.clicked.connect(pause)
+btn_chirp.clicked.connect(chirp_clicked)
 
 #  Setup plotting window
 # win = pg.GraphicsLayoutWidget(show=True, title=f"Pyaudio+pyqtgraph, fs={Fs}")
