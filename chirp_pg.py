@@ -20,8 +20,9 @@ Fs= 44100
 CHANNELS = 1
 RATE = Fs
 CHUNK=RATE//1
-CHUNK=256
-# CH is not used, for speaker output
+CHUNK=1<<12
+# CH speaker channel
+# 1 for right speaker, 0 for  left
 CH = 1
 
 # show all audio devices connected to the computer
@@ -56,8 +57,9 @@ def init_audio(callback):
 
 def play():
     global OUT_STREAM, OUT_DATA
-    for count in range(10):
-        time.sleep(1)
+    for count in range(1000):
+    # while(True):
+        time.sleep(0.1)
         OUT_STREAM.write(OUT_DATA.astype(np.float32).tobytes())
 
 # build chirp signals
@@ -76,13 +78,9 @@ def build_chirp(f1, f2, real_duration=25e-3):
     return stereo_signal
 
 
-chirp = build_chirp(17e3, 18e3, 2e-3)
-chirp2 = build_chirp(19e3, 20e3, 2e-3)
-audible_chirp = build_chirp(1e3, 2e3, 100e-3)
-
 #  Setup plotting window
 win = pg.GraphicsLayoutWidget(show=True, title=f"Pyaudio+pyqtgraph, fs={Fs}")
-win.resize(500,300)
+win.resize(500,500)
 p = win.addPlot()
 p.setLabel('bottom', 'time', units='sec')
 p.setRange(QtCore.QRectF(0, -1000, CHUNK/RATE, 2000)) 
@@ -95,12 +93,24 @@ p2.setLogMode(False, True)
 p2.setRange(QtCore.QRectF(0, 0, RATE/2, 5)) 
 fft1 = p2.plot()
 fft2 = p2.plot()
+win.nextRow()
+p3 = win.addPlot()
+p3.setLabel('bottom', 'time', units='sec')
+p3.setRange(QtCore.QRectF(0, -10000, CHUNK/RATE, 20000)) 
+corr1 = p3.plot()
+corr2 = p3.plot()
 
 # setup filter parameters
 data = []
 b, a = scipy.signal.butter(4, 0.1, btype='high')
 # use zi to eliminate transients on successive filter of blocks of data
 zi = np.zeros(max(len(a), len(b))-1)
+
+def calc_corr(f, c, t):
+    ret = np.correlate(f, c, 'full')
+    ret[:len(t)] += t
+    new_tail = ret[-len(t):]
+    return ret[:len(f)], new_tail 
 
 #  pyaudio callback for processing data from the microphone
 def callback(in_data, frame_count, time_info, status):
@@ -114,7 +124,8 @@ def callback(in_data, frame_count, time_info, status):
 
 #  This is called by qt slot/signal to update the graph
 def update():
-    global curve, c2, p, a, b, filtered, f, data, ff1, fft2
+    global curve, c2, p, a, b, filtered, f, data, ff1, fft2, corr1, corr2
+    global tail1, tail2
     x = np.arange(len(data))/RATE
     y = data
     # plot raw data in yellow
@@ -128,7 +139,10 @@ def update():
     freq = np.arange(len(D))*RATE/CHUNK
     fft1.setData(freq, D, pen='y')
     fft2.setData(freq, D2, pen='b')
-
+    xcorr1, tail1 = calc_corr(f, OUT_DATA[:, CH], tail1)
+    xcorr2, tail2 = calc_corr(f, chirp2[:, CH], tail2)
+    corr1.setData(x, xcorr1[:len(data)], pen='y')
+    corr2.setData(x, xcorr2[:len(data)], pen='b')
 # This is a class to signal that data is ready to be plotted...Interface to QT
 # objects
 #   Could not get the helper to pass parameters to update...used globals
@@ -143,8 +157,16 @@ init_audio(callback)
 #  start_stream is not needed... it is running already for some reason
 stream.start_stream()
 
+
+chirp = build_chirp(17e3, 18e3, 2e-3)
+chirp2 = build_chirp(18e3, 17e3, 2e-3)
+audible_chirp = build_chirp(1e3, 2e3, 100e-3)
+
 OUT_DATA = audible_chirp
 OUT_DATA = chirp
+tail1 = np.zeros(len(OUT_DATA)-1)
+tail2 = np.zeros(len(chirp2)-1)
+
 thread_play = threading.Thread(target=play)
 thread_play.start()
 

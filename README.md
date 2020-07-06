@@ -12,6 +12,7 @@
 2.  chirp_pg.py
     *  Does above
     *  Plays chirps for the first 10 seconds, 1 per second
+    *  computes correlation with initial chirp, plots in 3rd graph
 
 ## Requirements
   * python3
@@ -19,3 +20,6 @@
   * pyaudio
   * pyqt (not sure this will be included automatically by pyqtgraph)
 
+## Soundcard hangs
+  * On mac, the soundcard make get hung... This commands resets it
+    ```sudo killall coreaudiod```
