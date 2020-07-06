@@ -21,5 +21,5 @@
   * pyqt (not sure this will be included automatically by pyqtgraph)
 
 ## Soundcard hangs
-  * On mac, the soundcard make get hung... This commands resets it
+  * On mac, the soundcard may get hung... This commands resets it
     ```sudo killall coreaudiod```
