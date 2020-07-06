@@ -97,6 +97,7 @@ def update():
 
 # This is a class to signal that data is ready to be plotted...Interface to QT
 # objects
+#   Could not get the helper to pass parameters to update...used globals
 class Helper(QtCore.QObject):
     update = QtCore.pyqtSignal()
 
