@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 
 FORMAT=pyaudio.paFloat32
 fs= 44100
+fs= 96000
 CH = 1
 p = pyaudio.PyAudio()
 def show_devices(audio):
@@ -20,9 +21,9 @@ def play(out, data, reps=1):
 
 def build_chirp(f1, f2):
     global fs, CH
-    duration = fs/400
+    duration = fs/40
     t = np.arange(duration)/fs
-    chirp = 0.75 * scipy.signal.chirp(t, f1, 2.5e-3, f2, phi=0)
+    chirp = 0.75 * scipy.signal.chirp(t, f1, 25e-3, f2, phi=0)
     # chirp = np.hstack([chirp, chirp[::-1]])
     # data =0.5* np.sin(2*np.pi*f*t)
     chirp = np.bartlett(len(chirp))*chirp
@@ -35,7 +36,7 @@ chirp2 = build_chirp(19e3, 20e3)
 
 CHANNELS = 1
 RATE = fs
-CHUNK=RATE//10
+CHUNK=RATE//4
 
 global data
 data = []
@@ -52,7 +53,6 @@ while True:
                  rate=int(fs),
                  output=True,
                  output_device_index=2)
-    play(out,chirp)
     stream = p.open(format=FORMAT,
                     channels=CHANNELS,
                     rate=RATE,
@@ -60,6 +60,7 @@ while True:
                     stream_callback=callback,
                     input_device_index=1,
                     frames_per_buffer=CHUNK)
+    play(out,chirp)
     # stream.start_stream()
     # print(stream.is_active())
     while stream.is_active():
@@ -73,7 +74,7 @@ while True:
     plt.subplot(311)
 
     plt.plot(t, data)
-    b, a = scipy.signal.butter(4, 0.01, btype='high')
+    b, a = scipy.signal.butter(4, 0.1, btype='high')
     f = scipy.signal.lfilter(b, a, data)
     plt.plot(t, f)
     plt.subplot(312)
