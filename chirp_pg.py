@@ -9,7 +9,7 @@ import pyqtgraph as pg
 import threading
 
 app = QtGui.QApplication([])
-
+PAUSED = False
 #  Setup pyaudio parameters
 FORMAT=pyaudio.paFloat32
 dtype = np.float32
@@ -56,9 +56,9 @@ def init_audio(callback):
 
 
 def play():
-    global OUT_STREAM, OUT_DATA
-    for count in range(1000):
-    # while(True):
+    global OUT_STREAM, OUT_DATA, win
+    # for count in range(10):
+    while(win.isVisible()):
         time.sleep(0.1)
         OUT_STREAM.write(OUT_DATA.astype(np.float32).tobytes())
 
@@ -68,18 +68,48 @@ def build_chirp(f1, f2, real_duration=25e-3):
     duration = int(Fs * real_duration)
     # duration = Fs/40
     t = np.arange(duration)/Fs
-    chirp = 0.75 * scipy.signal.chirp(t, f1, real_duration, f2, phi=0)
+    chirp = 0.5 * scipy.signal.chirp(t, f1, real_duration, f2, phi=0)
     # chirp = np.hstack([chirp, chirp[::-1]])
     # data =0.5* np.sin(2*np.pi*f*t)
-    chirp = np.bartlett(len(chirp))*chirp
+    chirp = np.blackman(len(chirp))*chirp
     print('chirp duration: ', duration/Fs)
     stereo_signal = np.zeros([len(chirp), 2])   # these two lines are new
     stereo_signal[:, CH] = chirp[:]  # 1 for right speaker, 0 for  left
     return stereo_signal
 
+w = QtGui.QWidget()
+
+## Create some widgets to be placed inside
+btn = QtGui.QPushButton('pause')
+# text = QtGui.QLineEdit('enter text')
+# listw = QtGui.QListWidget()
+win = pg.GraphicsLayoutWidget(show=True, title=f"Pyaudio+pyqtgraph, fs={Fs}")
+
+## Create a grid layout to manage the widgets size and position
+layout = QtGui.QGridLayout()
+w.setLayout(layout)
+
+## Add widgets to the layout in their proper positions
+layout.addWidget(btn, 0, 0)   # button goes in upper-left
+# layout.addWidget(text, 1, 0)   # text edit goes in middle-left
+# layout.addWidget(listw, 2, 0)  # list widget goes in bottom-left
+layout.addWidget(win, 0, 1, 5, 5)  # plot goes on right side, spanning 3 rows
+
+## Display the widget as a new window
+w.show()
+
+def pause(evt):
+    global PAUSED
+    PAUSED = not PAUSED
+    if PAUSED:
+        btn.setText('Unpause')
+    else:
+        btn.setText('Pause')
+
+btn.clicked.connect(pause)
 
 #  Setup plotting window
-win = pg.GraphicsLayoutWidget(show=True, title=f"Pyaudio+pyqtgraph, fs={Fs}")
+# win = pg.GraphicsLayoutWidget(show=True, title=f"Pyaudio+pyqtgraph, fs={Fs}")
 win.resize(500,500)
 p = win.addPlot()
 p.setLabel('bottom', 'time', units='sec')
@@ -96,9 +126,10 @@ fft2 = p2.plot()
 win.nextRow()
 p3 = win.addPlot()
 p3.setLabel('bottom', 'time', units='sec')
-p3.setRange(QtCore.QRectF(0, -10000, CHUNK/RATE, 20000)) 
+p3.setRange(QtCore.QRectF(0, -1000, CHUNK/RATE, 2000)) 
 corr1 = p3.plot()
 corr2 = p3.plot()
+h = p3.plot()
 
 # setup filter parameters
 data = []
@@ -124,25 +155,29 @@ def callback(in_data, frame_count, time_info, status):
 
 #  This is called by qt slot/signal to update the graph
 def update():
-    global curve, c2, p, a, b, filtered, f, data, ff1, fft2, corr1, corr2
-    global tail1, tail2
-    x = np.arange(len(data))/RATE
-    y = data
-    # plot raw data in yellow
-    filtered.setData(x, y, pen='y')
-    # plot filtered datat in red
-    curve.setData(x, f, pen='r')
-    # compute and plot fft's of raw and filtered data
-    window = np.bartlett(len(data))
-    D = np.abs(np.fft.rfft(data*window))
-    D2 = np.abs(np.fft.rfft(f*window))
-    freq = np.arange(len(D))*RATE/CHUNK
-    fft1.setData(freq, D, pen='y')
-    fft2.setData(freq, D2, pen='b')
-    xcorr1, tail1 = calc_corr(f, OUT_DATA[:, CH], tail1)
-    xcorr2, tail2 = calc_corr(f, chirp2[:, CH], tail2)
-    corr1.setData(x, xcorr1[:len(data)], pen='y')
-    corr2.setData(x, xcorr2[:len(data)], pen='b')
+    global PAUSED
+    if not PAUSED:
+        global curve, c2, p, a, b, filtered, f, data, ff1, fft2, corr1, corr2
+        global tail1, tail2
+        x = np.arange(len(data))/RATE
+        y = data
+        # plot raw data in yellow
+        filtered.setData(x, y, pen='y')
+        # plot filtered datat in red
+        curve.setData(x, f, pen='r')
+        # compute and plot fft's of raw and filtered data
+        window = np.blackman(len(data))
+        D = np.abs(np.fft.rfft(data*window))
+        D2 = np.abs(np.fft.rfft(f*window))
+        freq = np.arange(len(D))*RATE/CHUNK
+        fft1.setData(freq, D, pen='y')
+        fft2.setData(freq, D2, pen='b')
+        xcorr1, tail1 = calc_corr(f, OUT_DATA[:, CH], tail1)
+        xcorr2, tail2 = calc_corr(f, chirp2[:, CH], tail2)
+        corr1.setData(x, np.abs(xcorr1[:len(data)]), pen='b')
+        corr2.setData(x, xcorr2[:len(data)], pen='r')
+        h.setData(x, np.abs(scipy.signal.hilbert(xcorr1[:len(data)])),
+                      pen='y')
 # This is a class to signal that data is ready to be plotted...Interface to QT
 # objects
 #   Could not get the helper to pass parameters to update...used globals
@@ -158,8 +193,8 @@ init_audio(callback)
 stream.start_stream()
 
 
-chirp = build_chirp(17e3, 18e3, 2e-3)
-chirp2 = build_chirp(18e3, 17e3, 2e-3)
+chirp = build_chirp(13e3, 14e3, 10e-3)
+chirp2 = build_chirp(13.5e3, 13.5e3, 10e-3)
 audible_chirp = build_chirp(1e3, 2e3, 100e-3)
 
 OUT_DATA = audible_chirp
