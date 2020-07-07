@@ -7,13 +7,18 @@ import time
 from pyqtgraph.Qt import QtGui, QtCore 
 import pyqtgraph as pg
 import threading
+import platform
 
-if False:
+if platform.system() == 'Windows':
     INPUT_DEVICE = 0
-    OUTPUT_DEVICE = 1
-else:
-    INPUT_DEVICE = 1
-    OUTPUT_DEVICE = 0
+    OUTPUT_DEVICE = 2
+else; # my mac
+    if False:
+        INPUT_DEVICE = 0
+        OUTPUT_DEVICE = 1
+    else:
+        INPUT_DEVICE = 1
+        OUTPUT_DEVICE = 0
 
 app = QtGui.QApplication([])
 PAUSED = False
