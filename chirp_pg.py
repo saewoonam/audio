@@ -8,6 +8,13 @@ from pyqtgraph.Qt import QtGui, QtCore
 import pyqtgraph as pg
 import threading
 
+if True:
+    INPUT_DEVICE = 0
+    OUTPUT_DEVICE = 1
+else:
+    INPUT_DEVICE = 1
+    OUTPUT_DEVICE = 2
+
 app = QtGui.QApplication([])
 PAUSED = False
 CHIRPING = True
@@ -46,14 +53,14 @@ def init_audio(callback):
                         stream_callback=callback,
                         #  The microphone on my laptop shows up at index 1 when
                         #  connected to an external monitor
-                        input_device_index=1,
+                        input_device_index=INPUT_DEVICE,
                         frames_per_buffer=CHUNK)
     OUT_STREAM = audio.open(format=pyaudio.paFloat32,
                         channels=2,
                         rate=int(Fs),
                         output=True,
                         #  my build-in speakers are index 2
-                        output_device_index=2)
+                        output_device_index=OUTPUT_DEVICE)
 
 
 def play():
@@ -191,8 +198,10 @@ def update():
         xcorr2, tail2 = calc_corr(f, chirp2[:, CH], tail2)
         corr1.setData(x, np.abs(xcorr1[:len(data)]), pen='b')
         corr2.setData(x, xcorr2[:len(data)], pen='r')
-        h.setData(x, np.abs(scipy.signal.hilbert(xcorr1[:len(data)])),
-                      pen='y')
+        hilbert = np.abs(scipy.signal.hilbert(xcorr1[:len(data)]))
+        h.setData(x, hilbert, pen='y')
+        peaks, props = scipy.signal.find_peaks(hilbert, distance=40, height=150)
+        print(peaks/Fs*1000, props)
 # This is a class to signal that data is ready to be plotted...Interface to QT
 # objects
 #   Could not get the helper to pass parameters to update...used globals
@@ -208,8 +217,8 @@ init_audio(callback)
 stream.start_stream()
 
 
-chirp = build_chirp(13e3, 14e3, 10e-3)
-chirp2 = build_chirp(13.5e3, 13.5e3, 10e-3)
+chirp = build_chirp(18.6e3, 20e3, 2e-3)
+chirp2 = build_chirp(16e3, 18e3, 2e-3)
 audible_chirp = build_chirp(1e3, 2e3, 100e-3)
 
 OUT_DATA = audible_chirp
