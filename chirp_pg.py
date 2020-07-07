@@ -8,12 +8,12 @@ from pyqtgraph.Qt import QtGui, QtCore
 import pyqtgraph as pg
 import threading
 
-if True:
+if False:
     INPUT_DEVICE = 0
     OUTPUT_DEVICE = 1
 else:
     INPUT_DEVICE = 1
-    OUTPUT_DEVICE = 2
+    OUTPUT_DEVICE = 0
 
 app = QtGui.QApplication([])
 PAUSED = False
@@ -28,7 +28,7 @@ Fs= 44100
 CHANNELS = 1
 RATE = Fs
 CHUNK=RATE//1
-CHUNK=1<<12
+CHUNK=1<<14
 # CH speaker channel
 # 1 for right speaker, 0 for  left
 CH = 1
@@ -68,9 +68,15 @@ def play():
     # for count in range(10):
     while(win.isVisible()):
         while (CHIRPING and win.isVisible()):
+            # time.sleep(CHUNK/Fs)
             time.sleep(0.1)
-            OUT_STREAM.write(OUT_DATA.astype(np.float32).tobytes())
+            # OUT_STREAM.write(OUT_DATA.astype(np.float32).tobytes())
         time.sleep(1)  # sleep briefly while not chirping
+
+
+def play_1x():
+    global OUT_STREAM, OUT_DATA, win
+    OUT_STREAM.write(OUT_DATA.astype(np.float32).tobytes())
 
 # build chirp signals
 def build_chirp(f1, f2, real_duration=25e-3):
@@ -92,8 +98,9 @@ w = QtGui.QWidget()
 ## Create some widgets to be placed inside
 btn = QtGui.QPushButton('pause')
 btn_chirp = QtGui.QPushButton('chirp off')
+btn_1x = QtGui.QPushButton('chirp 1x')
 # text = QtGui.QLineEdit('enter text')
-# listw = QtGui.QListWidget()
+listw = QtGui.QListWidget()
 win = pg.GraphicsLayoutWidget(show=True, title=f"Pyaudio+pyqtgraph, fs={Fs}")
 
 ## Create a grid layout to manage the widgets size and position
@@ -103,12 +110,17 @@ w.setLayout(layout)
 ## Add widgets to the layout in their proper positions
 layout.addWidget(btn, 0, 0)   # button goes in upper-left
 layout.addWidget(btn_chirp, 1, 0)   # button goes in upper-left
+layout.addWidget(btn_1x, 2, 0)   # button goes in upper-left
 # layout.addWidget(text, 1, 0)   # text edit goes in middle-left
-# layout.addWidget(listw, 2, 0)  # list widget goes in bottom-left
+layout.addWidget(listw, 3, 0)  # list widget goes in bottom-left
 layout.addWidget(win, 0, 1, 5, 5)  # plot goes on right side, spanning 3 rows
 
 ## Display the widget as a new window
 w.show()
+
+def p1x():
+    play_1x()
+
 
 def pause(evt):
     global PAUSED
@@ -129,7 +141,7 @@ def chirp_clicked(evt):
 
 btn.clicked.connect(pause)
 btn_chirp.clicked.connect(chirp_clicked)
-
+btn_1x.clicked.connect(play_1x)
 #  Setup plotting window
 # win = pg.GraphicsLayoutWidget(show=True, title=f"Pyaudio+pyqtgraph, fs={Fs}")
 win.resize(500,500)
@@ -152,6 +164,7 @@ p3.setRange(QtCore.QRectF(0, -1000, CHUNK/RATE, 2000))
 corr1 = p3.plot()
 corr2 = p3.plot()
 h = p3.plot()
+h2_plot = p3.plot()
 
 # setup filter parameters
 data = []
@@ -167,6 +180,10 @@ def calc_corr(f, c, t):
 
 #  pyaudio callback for processing data from the microphone
 def callback(in_data, frame_count, time_info, status):
+    global OUT_STREAM, OUT_DATA
+    time.sleep(0.02)
+    OUT_STREAM.write(OUT_DATA.astype(np.float32).tobytes())
+
     global data, a, b, bag, f, zi
     # print('time_info', time_info, 'status',status)
     data = np.frombuffer(in_data, dtype=dtype)
@@ -200,8 +217,19 @@ def update():
         corr2.setData(x, xcorr2[:len(data)], pen='r')
         hilbert = np.abs(scipy.signal.hilbert(xcorr1[:len(data)]))
         h.setData(x, hilbert, pen='y')
-        peaks, props = scipy.signal.find_peaks(hilbert, distance=40, height=150)
-        print(peaks/Fs*1000, props)
+        blow, alow = scipy.signal.butter(4, 0.05, btype='low')
+        h2 = scipy.signal.lfilter(blow, alow, np.abs(xcorr1[:len(data)]))
+        h2_plot.setData(x, h2, pen='w')
+        peaks, props = scipy.signal.find_peaks(hilbert, prominence=1,
+                                               height=150)
+        # print(peaks/Fs*1000, props)
+        peaks = peaks.tolist()
+        items = []
+        for i in range(len(peaks)):
+            items.append(f'{peaks[i]/Fs*1000:8.2f}: {props["peak_heights"][i]:8.2f}')    
+        # peaks = [str(p) for p in peaks]
+        listw.clear()
+        listw.addItems(items)
 # This is a class to signal that data is ready to be plotted...Interface to QT
 # objects
 #   Could not get the helper to pass parameters to update...used globals
@@ -217,7 +245,7 @@ init_audio(callback)
 stream.start_stream()
 
 
-chirp = build_chirp(18.6e3, 20e3, 2e-3)
+chirp = build_chirp(19e3, 20e3, 2e-3)
 chirp2 = build_chirp(16e3, 18e3, 2e-3)
 audible_chirp = build_chirp(1e3, 2e3, 100e-3)
 
