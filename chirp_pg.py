@@ -7,13 +7,18 @@ import time
 from pyqtgraph.Qt import QtGui, QtCore 
 import pyqtgraph as pg
 import threading
+import platform
 
-if False:
+if platform.system() == 'Windows':
     INPUT_DEVICE = 0
-    OUTPUT_DEVICE = 1
-else:
-    INPUT_DEVICE = 1
-    OUTPUT_DEVICE = 0
+    OUTPUT_DEVICE = 2
+else: # my mac
+    if False:
+        INPUT_DEVICE = 0
+        OUTPUT_DEVICE = 1
+    else:
+        INPUT_DEVICE = 1
+        OUTPUT_DEVICE = 0
 
 app = QtGui.QApplication([])
 PAUSED = False
@@ -28,7 +33,7 @@ Fs= 44100
 CHANNELS = 1
 RATE = Fs
 CHUNK=RATE//1
-CHUNK=1<<14
+CHUNK=1<<13
 # CH speaker channel
 # 1 for right speaker, 0 for  left
 CH = 1
@@ -68,9 +73,9 @@ def play():
     # for count in range(10):
     while(win.isVisible()):
         while (CHIRPING and win.isVisible()):
-            # time.sleep(CHUNK/Fs)
-            time.sleep(0.1)
-            # OUT_STREAM.write(OUT_DATA.astype(np.float32).tobytes())
+            time.sleep(CHUNK/Fs)
+            # time.sleep(0.1)
+            OUT_STREAM.write(OUT_DATA.astype(np.float32).tobytes())
         time.sleep(1)  # sleep briefly while not chirping
 
 
@@ -181,8 +186,8 @@ def calc_corr(f, c, t):
 #  pyaudio callback for processing data from the microphone
 def callback(in_data, frame_count, time_info, status):
     global OUT_STREAM, OUT_DATA
-    time.sleep(0.02)
-    OUT_STREAM.write(OUT_DATA.astype(np.float32).tobytes())
+    # time.sleep(0.02)
+    # OUT_STREAM.write(OUT_DATA.astype(np.float32).tobytes())
 
     global data, a, b, bag, f, zi
     # print('time_info', time_info, 'status',status)
@@ -221,7 +226,7 @@ def update():
         h2 = scipy.signal.lfilter(blow, alow, np.abs(xcorr1[:len(data)]))
         h2_plot.setData(x, h2, pen='w')
         peaks, props = scipy.signal.find_peaks(hilbert, prominence=1,
-                                               height=150)
+                                               height=2000)
         # print(peaks/Fs*1000, props)
         peaks = peaks.tolist()
         items = []
@@ -245,8 +250,8 @@ init_audio(callback)
 stream.start_stream()
 
 
-chirp = build_chirp(19e3, 20e3, 2e-3)
-chirp2 = build_chirp(16e3, 18e3, 2e-3)
+chirp = build_chirp(17e3, 19e3, 50e-3)
+chirp2 = build_chirp(16e3, 18e3, 50e-3)
 audible_chirp = build_chirp(1e3, 2e3, 100e-3)
 
 OUT_DATA = audible_chirp
